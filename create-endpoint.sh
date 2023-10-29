@@ -8,24 +8,24 @@ show_help () {
     echo "-h user@host"
 }
 
-while getopts "h?p:u:" opt; do
+while getopts "p:u:h:" opt; do
   case "$opt" in
-    h|\?)
-      show_help
-      exit 0
-      ;;
     p)  LOCAL_PORT=$OPTARG
       ;;
     u)  PUBLIC_URL=$OPTARG
       ;;
     h)  HOST=$OPTARG
       ;;
+    *)
+      show_help
+      exit 0
+      ;;
   esac
 done
 
 shift $((OPTIND-1))
 
-if [ -z "${LOCAL_PORT}" ] || [ -z "${PUBLIC_URL}" ]; then
+if [ -z "${LOCAL_PORT}" ] || [ -z "${PUBLIC_URL}" ] || [ -z "${HOST}" ]; then
     show_help
     exit 1
 fi
@@ -46,7 +46,8 @@ sed "s,<public_url>,${TEMP_SITE}.${PUBLIC_URL},g;s,<port>,${PROXY_PORT},g" nginx
 
 trap 'rm -rf -- "./tmp/$TEMP_SITE";' EXIT
 # push config
-scp "./tmp/${TEMP_SITE}" "${HOST}:/etc/nginx/sites-enabled/"
+scp -q "./tmp/${TEMP_SITE}" "${HOST}:/etc/nginx/sites-enabled/"
 
-ssh "${HOST}" "nginx -s reload; trap 'rm -rf /etc/nginx/sites-enabled/${TEMP_SITE}; nginx -s reload' EXIT; read -p \"Press enter to close the ${TEMP_SITE}.${PUBLIC_URL} tunnel to local port ${LOCAL_PORT}\""
+echo http://${TEMP_SITE}.${PUBLIC_URL}
+ssh -R ${PROXY_PORT}:127.0.0.1:${LOCAL_PORT} "${HOST}" "nginx -s reload; trap 'rm -rf /etc/nginx/sites-enabled/${TEMP_SITE}; nginx -s reload' EXIT; echo 'Press enter to close the ${TEMP_SITE}.${PUBLIC_URL} tunnel to local port ${LOCAL_PORT}'; read -p ''"
 
